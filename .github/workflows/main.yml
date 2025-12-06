@@ -11,7 +11,7 @@ on:
         default: 6.2.1.122
 
 env:
-  TOMCAT_VERSION: 10.1.49
+  TOMCAT_VERSION: 9.0.98
   PUSH_LUCEE_VERSION: 6.2.1.122
 
 jobs:
@@ -56,7 +56,7 @@ jobs:
       - name: Download Tomcat
         run: |
           if [ ! -f "apache-tomcat-${{ env.TOMCAT_VERSION }}.tar.gz" ]; then
-            curl --fail -sL "https://dlcdn.apache.org/tomcat/tomcat-10/v${{ env.TOMCAT_VERSION }}/bin/apache-tomcat-${{ env.TOMCAT_VERSION }}.tar.gz" -o "apache-tomcat-${{ env.TOMCAT_VERSION }}.tar.gz"
+            curl --fail -sL "https://dlcdn.apache.org/tomcat/tomcat-9/v${{ env.TOMCAT_VERSION }}/bin/apache-tomcat-${{ env.TOMCAT_VERSION }}.tar.gz" -o "apache-tomcat-${{ env.TOMCAT_VERSION }}.tar.gz"
           fi
           ls -lh *.tar.gz
 
