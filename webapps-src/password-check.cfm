@@ -9,7 +9,7 @@ try {
 		writeOutput( "FAIL: Password was WIPED - admin accessible with empty password!" );
 		header statusCode=500;
 	} catch ( any e2 ) {
-		writeOutput( "Password check error: #e2.message#" );
+		rethrow;
 	}
 }
 </cfscript>
