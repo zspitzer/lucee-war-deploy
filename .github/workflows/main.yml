@@ -11,7 +11,7 @@ on:
         default: 6.2.1.122
 
 env:
-  TOMCAT_VERSION: 9.0.98
+  TOMCAT_VERSION: 9.0.112
   PUSH_LUCEE_VERSION: 6.2.1.122
 
 jobs:
