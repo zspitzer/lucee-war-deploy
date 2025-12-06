@@ -1,0 +1,12 @@
+*.zip
+*.war
+*.jar
+logs/
+temp/
+work/
+lucee-server/
+webapps/
+bin/
+lib/
+conf/*
+!conf/.CFConfig.json

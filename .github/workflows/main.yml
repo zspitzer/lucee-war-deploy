@@ -1,0 +1,189 @@
+name: Lucee WAR deployment tests
+
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      LUCEE_VERSION:
+        required: true
+        description: Lucee WAR Version to test
+        type: string
+        default: 6.2.1.122
+
+env:
+  TOMCAT_VERSION: 10.1.49
+  PUSH_LUCEE_VERSION: 6.2.1.122
+
+jobs:
+  test-war-deploy:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        lucee_version:
+          - 6.2.0.321   # known good
+          - 6.2.1.122   # reported bad
+          - 6.2.4.21-RC # latest RC
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Cache Tomcat
+        uses: actions/cache@v4
+        with:
+          path: apache-tomcat-${{ env.TOMCAT_VERSION }}.tar.gz
+          key: tomcat-${{ env.TOMCAT_VERSION }}
+
+      - name: Cache Lucee WAR
+        uses: actions/cache@v4
+        with:
+          path: lucee-${{ matrix.lucee_version }}.war
+          key: lucee-war-${{ matrix.lucee_version }}
+
+      - name: Cache Maven repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: m2-${{ runner.os }}-${{ matrix.lucee_version }}
+          restore-keys: |
+            m2-${{ runner.os }}-
+
+      - name: Download Tomcat
+        run: |
+          if [ ! -f "apache-tomcat-${{ env.TOMCAT_VERSION }}.tar.gz" ]; then
+            curl --fail -sL "https://dlcdn.apache.org/tomcat/tomcat-10/v${{ env.TOMCAT_VERSION }}/bin/apache-tomcat-${{ env.TOMCAT_VERSION }}.tar.gz" -o "apache-tomcat-${{ env.TOMCAT_VERSION }}.tar.gz"
+          fi
+          ls -lh *.tar.gz
+
+      - name: Download Lucee WAR
+        run: |
+          if [ ! -f "lucee-${{ matrix.lucee_version }}.war" ]; then
+            curl --fail -sL "https://cdn.lucee.org/lucee-${{ matrix.lucee_version }}.war" -o "lucee-${{ matrix.lucee_version }}.war"
+          fi
+          cp "lucee-${{ matrix.lucee_version }}.war" lucee.war
+          ls -lh *.war
+
+      - name: Extract Tomcat and deploy WAR
+        run: |
+          tar -xzf "apache-tomcat-${{ env.TOMCAT_VERSION }}.tar.gz"
+          mv apache-tomcat-${{ env.TOMCAT_VERSION }} tomcat
+          cp lucee.war tomcat/webapps/
+          ls -la tomcat/webapps/
+
+      - name: Start Tomcat (first boot)
+        run: |
+          export CATALINA_HOME="$PWD/tomcat"
+          chmod +x tomcat/bin/*.sh
+          tomcat/bin/startup.sh
+          echo "Waiting for Lucee to start..."
+
+          # Wait for WAR to be extracted and Lucee to be ready
+          for i in {1..20}; do
+            if curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/lucee/lucee/admin/server.cfm 2>/dev/null | grep -qE "(200|302)"; then
+              echo "Lucee admin is ready after $i seconds"
+              break
+            fi
+            echo "Waiting... ($i)"
+            sleep 1
+          done
+
+          # Show what's running and logs
+          ps aux | grep -i java || true
+          echo "=== catalina.out ==="
+          tail -200 tomcat/logs/catalina.out || true
+          echo "=== webapps directory ==="
+          ls -la tomcat/webapps/
+          ls -la tomcat/webapps/lucee/WEB-INF/lucee-server/ || true
+
+      - name: Copy test files
+        run: |
+          ls -la tomcat/webapps/
+          cp webapps-src/*.cfm tomcat/webapps/lucee/
+          ls -la tomcat/webapps/lucee/*.cfm
+
+      - name: Test first boot
+        run: |
+          echo "## Lucee ${{ matrix.lucee_version }} - First Boot" | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Version check" | tee -a $GITHUB_STEP_SUMMARY
+          curl -s http://127.0.0.1:8080/lucee/check.cfm | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Config check (before restart)" | tee -a $GITHUB_STEP_SUMMARY
+          curl -s http://127.0.0.1:8080/lucee/config-check.cfm | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Set admin password" | tee -a $GITHUB_STEP_SUMMARY
+          curl -s "http://127.0.0.1:8080/lucee/set-password.cfm?password=testpass123" | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Stop Tomcat
+        run: |
+          export CATALINA_HOME="$PWD/tomcat"
+          tomcat/bin/shutdown.sh
+          sleep 5
+          # Force kill if still running
+          pkill -f "catalina" || true
+          sleep 2
+
+      - name: Start Tomcat (second boot)
+        run: |
+          export LUCEE_SERVER="$PWD/lucee-server"
+          export CATALINA_HOME="$PWD/tomcat"
+          tomcat/bin/startup.sh
+          echo "Waiting for Lucee to restart..."
+
+          # Wait for Lucee to be ready
+          for i in {1..30}; do
+            if curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/lucee/check.cfm 2>/dev/null | grep -q "200"; then
+              echo "Lucee is ready after $i seconds"
+              break
+            fi
+            echo "Waiting... ($i)"
+            sleep 1
+          done
+
+          # Show logs if it didn't come up
+          tail -100 tomcat/logs/catalina.out || true
+
+      - name: Test after restart
+        run: |
+          echo "## Lucee ${{ matrix.lucee_version }} - After Restart" | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Version check" | tee -a $GITHUB_STEP_SUMMARY
+          curl -s http://127.0.0.1:8080/lucee/check.cfm | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Config check (after restart)" | tee -a $GITHUB_STEP_SUMMARY
+          HTTP_STATUS=$(curl -s -w "%{http_code}" -o /tmp/config-response.txt http://127.0.0.1:8080/lucee/config-check.cfm)
+          cat /tmp/config-response.txt | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "HTTP Status: $HTTP_STATUS" | tee -a $GITHUB_STEP_SUMMARY
+
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "ERROR: Config check failed with status $HTTP_STATUS" | tee -a $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          echo "### Password check (should still be set)" | tee -a $GITHUB_STEP_SUMMARY
+          curl -s "http://127.0.0.1:8080/lucee/password-check.cfm" | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Dump everything
+        if: always()
+        run: |
+          echo "=== localhost log ==="
+          cat tomcat/logs/localhost.*.log 2>/dev/null || true
+          echo ""
+          echo "=== catalina.out ==="
+          cat tomcat/logs/catalina.out 2>/dev/null || true
+          echo ""
+          echo "=== directory listing ==="
+          ls -lR /home/runner/work/lucee-war-deploy/lucee-war-deploy/ 2>&1

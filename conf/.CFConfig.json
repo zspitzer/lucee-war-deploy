@@ -1,0 +1,20 @@
+{
+	"loggers": {
+		"application": {
+			"appender": "resource",
+			"appenderArguments": {
+				"path": "{lucee-config}/logs/application.log"
+			},
+			"level": "trace",
+			"layout": "classic"
+		},
+		"deploy": {
+			"appender": "resource",
+			"appenderArguments": {
+				"path": "{lucee-config}/logs/deploy.log"
+			},
+			"level": "trace",
+			"layout": "classic"
+		}
+	}
+}
