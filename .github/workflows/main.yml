@@ -112,15 +112,15 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "### Version check" | tee -a $GITHUB_STEP_SUMMARY
-          curl -s http://127.0.0.1:8080/lucee/check.cfm | tee -a $GITHUB_STEP_SUMMARY
+          curl --fail -s http://127.0.0.1:8080/lucee/check.cfm | tee -a $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "### Config check (before restart)" | tee -a $GITHUB_STEP_SUMMARY
-          curl -s http://127.0.0.1:8080/lucee/config-check.cfm | tee -a $GITHUB_STEP_SUMMARY
+          curl --fail -s http://127.0.0.1:8080/lucee/config-check.cfm | tee -a $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "### Set admin password" | tee -a $GITHUB_STEP_SUMMARY
-          curl -s "http://127.0.0.1:8080/lucee/set-password.cfm?password=testpass123" | tee -a $GITHUB_STEP_SUMMARY
+          curl --fail -s "http://127.0.0.1:8080/lucee/set-password.cfm?password=testpass123" | tee -a $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
       - name: Stop Tomcat
@@ -158,7 +158,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "### Version check" | tee -a $GITHUB_STEP_SUMMARY
-          curl -s http://127.0.0.1:8080/lucee/check.cfm | tee -a $GITHUB_STEP_SUMMARY
+          curl --fail -s http://127.0.0.1:8080/lucee/check.cfm | tee -a $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "### Config check (after restart)" | tee -a $GITHUB_STEP_SUMMARY
@@ -173,7 +173,7 @@ jobs:
           fi
 
           echo "### Password check (should still be set)" | tee -a $GITHUB_STEP_SUMMARY
-          curl -s "http://127.0.0.1:8080/lucee/password-check.cfm" | tee -a $GITHUB_STEP_SUMMARY
+          curl --fail -s "http://127.0.0.1:8080/lucee/password-check.cfm" | tee -a $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
       - name: Dump everything
