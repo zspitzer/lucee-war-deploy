@@ -3,7 +3,7 @@
 password = url.password ?: "testpass123";
 try {
 	admin = new Administrator( "server", "" );
-	admin.updatePassword( password );
+	admin.updatePassword( newPassword=password );
 	writeOutput( "Password set successfully to: #password#" );
 } catch ( any e ) {
 	writeOutput( "Failed to set password: #e.message#" );
