@@ -174,5 +174,115 @@ jobs:
           echo "=== catalina.out ==="
           cat tomcat/logs/catalina.out 2>/dev/null || true
           echo ""
-          echo "=== directory listing ==="
-          ls -lR /home/runner/work/lucee-war-deploy/lucee-war-deploy/ 2>&1
+          echo "=== lucee-server directory ==="
+          find tomcat/webapps/lucee/WEB-INF/lucee-server -type f 2>/dev/null | sort
+
+  test-express-deploy:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        lucee_version:
+          - 6.2.0.321   # known good
+          - 6.2.1.122   # reported bad
+          - 6.2.4.21-RC # latest RC
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Cache Lucee Express
+        uses: actions/cache@v4
+        with:
+          path: lucee-express-${{ matrix.lucee_version }}.zip
+          key: lucee-express-${{ matrix.lucee_version }}
+
+      - name: Download Lucee Express
+        run: |
+          if [ ! -f "lucee-express-${{ matrix.lucee_version }}.zip" ]; then
+            curl --fail -sL "https://cdn.lucee.org/lucee-express-${{ matrix.lucee_version }}.zip" -o "lucee-express-${{ matrix.lucee_version }}.zip"
+          fi
+          ls -lh *.zip
+
+      - name: Extract Express
+        run: |
+          unzip -q "lucee-express-${{ matrix.lucee_version }}.zip" -d express
+          chmod +x express/*.sh express/bin/*.sh
+          ls -la express/
+
+      - name: Start Express (first boot)
+        run: |
+          cd express
+          ./startup.sh &
+          cd ..
+          echo "Waiting for Lucee Express to start..."
+
+          for i in {1..30}; do
+            if curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8888/lucee/admin/server.cfm 2>/dev/null | grep -qE "(200|302)"; then
+              echo "Lucee Express is ready after $i seconds"
+              break
+            fi
+            echo "Waiting... ($i)"
+            sleep 1
+          done
+
+      - name: Copy test files
+        run: |
+          cp webapps-src/*.cfm express/webapps/ROOT/
+          ls -la express/webapps/ROOT/*.cfm
+
+      - name: Test first boot
+        run: |
+          echo "## Express ${{ matrix.lucee_version }} - First Boot" | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Version check" | tee -a $GITHUB_STEP_SUMMARY
+          curl --fail -s http://127.0.0.1:8888/check.cfm | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Set admin password" | tee -a $GITHUB_STEP_SUMMARY
+          curl --fail -s "http://127.0.0.1:8888/set-password.cfm?password=testpass123" | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Trigger Lucee restart
+        run: |
+          echo "### Triggering Lucee internal restart" | tee -a $GITHUB_STEP_SUMMARY
+          curl --fail -s "http://127.0.0.1:8888/restart-lucee.cfm" | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "Waiting for Lucee to restart..."
+          sleep 5
+          for i in {1..30}; do
+            if curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8888/check.cfm 2>/dev/null | grep -q "200"; then
+              echo "Lucee is ready after $i seconds"
+              break
+            fi
+            echo "Waiting... ($i)"
+            sleep 1
+          done
+
+      - name: Test after restart
+        run: |
+          echo "## Express ${{ matrix.lucee_version }} - After Restart" | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Version check" | tee -a $GITHUB_STEP_SUMMARY
+          curl --fail -s http://127.0.0.1:8888/check.cfm | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Password check (should still be set)" | tee -a $GITHUB_STEP_SUMMARY
+          curl --fail -s "http://127.0.0.1:8888/password-check.cfm" | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Dump Express lucee-server
+        if: always()
+        run: |
+          echo "=== Express lucee-server directory ==="
+          find express/lucee-server -type f 2>/dev/null | sort || true
+          echo ""
+          echo "=== catalina.out ==="
+          cat express/logs/catalina.out 2>/dev/null || true
