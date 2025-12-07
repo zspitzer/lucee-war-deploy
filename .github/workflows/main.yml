@@ -123,23 +123,15 @@ jobs:
           curl --fail -s "http://127.0.0.1:8080/lucee/set-password.cfm?password=testpass123" | tee -a $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-      - name: Stop Tomcat
+      - name: Trigger Lucee restart (like admin button)
         run: |
-          export CATALINA_HOME="$PWD/tomcat"
-          tomcat/bin/shutdown.sh
-          sleep 5
-          # Force kill if still running
-          pkill -f "catalina" || true
-          sleep 2
+          echo "### Triggering Lucee internal restart" | tee -a $GITHUB_STEP_SUMMARY
+          curl --fail -s "http://127.0.0.1:8080/lucee/restart-lucee.cfm" | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
-      - name: Start Tomcat (second boot)
-        run: |
-          export LUCEE_SERVER="$PWD/lucee-server"
-          export CATALINA_HOME="$PWD/tomcat"
-          tomcat/bin/startup.sh
+          # Wait for Lucee to come back up
           echo "Waiting for Lucee to restart..."
-
-          # Wait for Lucee to be ready
+          sleep 5
           for i in {1..30}; do
             if curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/lucee/check.cfm 2>/dev/null | grep -q "200"; then
               echo "Lucee is ready after $i seconds"
@@ -148,9 +140,6 @@ jobs:
             echo "Waiting... ($i)"
             sleep 1
           done
-
-          # Show logs if it didn't come up
-          tail -100 tomcat/logs/catalina.out || true
 
       - name: Test after restart
         run: |
