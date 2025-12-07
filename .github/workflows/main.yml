@@ -174,11 +174,11 @@ jobs:
       - name: Dump everything
         if: always()
         run: |
-          echo "=== .CFConfig.json BEFORE restart (hspw/salt) ==="
-          grep -E "(hspw|salt)" /tmp/config-before-restart.json 2>/dev/null || echo "File not found"
+          echo "=== .CFConfig.json BEFORE restart (password/hspw/salt) ==="
+          grep -iE "(password|hspw|salt)" /tmp/config-before-restart.json 2>/dev/null || echo "File not found"
           echo ""
-          echo "=== .CFConfig.json AFTER restart (hspw/salt) ==="
-          grep -E "(hspw|salt)" /tmp/config-after-restart.json 2>/dev/null || echo "File not found"
+          echo "=== .CFConfig.json AFTER restart (password/hspw/salt) ==="
+          grep -iE "(password|hspw|salt)" /tmp/config-after-restart.json 2>/dev/null || echo "File not found"
           echo ""
           echo "=== Config diff ==="
           diff /tmp/config-before-restart.json /tmp/config-after-restart.json || true
@@ -307,11 +307,11 @@ jobs:
       - name: Dump Express lucee-server
         if: always()
         run: |
-          echo "=== .CFConfig.json BEFORE restart (hspw/salt) ==="
-          grep -E "(hspw|salt)" /tmp/express-config-before-restart.json 2>/dev/null || echo "File not found"
+          echo "=== .CFConfig.json BEFORE restart (password/hspw/salt) ==="
+          grep -iE "(password|hspw|salt)" /tmp/express-config-before-restart.json 2>/dev/null || echo "File not found"
           echo ""
-          echo "=== .CFConfig.json AFTER restart (hspw/salt) ==="
-          grep -E "(hspw|salt)" /tmp/express-config-after-restart.json 2>/dev/null || echo "File not found"
+          echo "=== .CFConfig.json AFTER restart (password/hspw/salt) ==="
+          grep -iE "(password|hspw|salt)" /tmp/express-config-after-restart.json 2>/dev/null || echo "File not found"
           echo ""
           echo "=== Config diff ==="
           diff /tmp/express-config-before-restart.json /tmp/express-config-after-restart.json || true
