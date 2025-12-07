@@ -144,44 +144,91 @@ jobs:
             sleep 1
           done
 
-      - name: Test after restart
+      - name: Test after Lucee restart
         run: |
-          echo "## Lucee ${{ matrix.lucee_version }} - After Restart" | tee -a $GITHUB_STEP_SUMMARY
+          echo "## Lucee ${{ matrix.lucee_version }} - After Lucee Internal Restart" | tee -a $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "### Version check" | tee -a $GITHUB_STEP_SUMMARY
           curl --fail -s http://127.0.0.1:8080/lucee/check.cfm | tee -a $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          echo "### Config check (after restart)" | tee -a $GITHUB_STEP_SUMMARY
+          echo "### Password check (after Lucee restart)" | tee -a $GITHUB_STEP_SUMMARY
+          curl --fail -s "http://127.0.0.1:8080/lucee/password-check.cfm" | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Snapshot config after Lucee restart
+          cp tomcat/webapps/lucee/WEB-INF/lucee-server/context/.CFConfig.json /tmp/config-after-lucee-restart.json
+
+      - name: Full Tomcat restart (JVM restart)
+        run: |
+          echo "### Stopping Tomcat" | tee -a $GITHUB_STEP_SUMMARY
+          tomcat/bin/shutdown.sh || true
+          sleep 5
+
+          # Make sure it's dead
+          pkill -f "catalina" || true
+          sleep 2
+
+          echo "### Starting Tomcat" | tee -a $GITHUB_STEP_SUMMARY
+          export CATALINA_HOME="$PWD/tomcat"
+          tomcat/bin/startup.sh
+
+          # Wait for Lucee to be ready
+          echo "Waiting for Lucee to start after full Tomcat restart..."
+          for i in {1..30}; do
+            if curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/lucee/lucee/admin/server.cfm 2>/dev/null | grep -qE "(200|302)"; then
+              echo "Lucee is ready after $i seconds"
+              break
+            fi
+            echo "Waiting... ($i)"
+            sleep 1
+          done
+
+      - name: Test after full Tomcat restart
+        run: |
+          echo "## Lucee ${{ matrix.lucee_version }} - After Full Tomcat Restart" | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Version check" | tee -a $GITHUB_STEP_SUMMARY
+          curl --fail -s http://127.0.0.1:8080/lucee/check.cfm | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Config check (after full restart)" | tee -a $GITHUB_STEP_SUMMARY
           HTTP_STATUS=$(curl -s -w "%{http_code}" -o /tmp/config-response.txt http://127.0.0.1:8080/lucee/config-check.cfm)
           cat /tmp/config-response.txt | tee -a $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "HTTP Status: $HTTP_STATUS" | tee -a $GITHUB_STEP_SUMMARY
 
           if [ "$HTTP_STATUS" != "200" ]; then
-            echo "ERROR: Config check failed with status $HTTP_STATUS" | tee -a $GITHUB_STEP_SUMMARY
+            echo "ERROR: Config check failed with status $HTTP_STATUS - PASSWORD WAS WIPED!" | tee -a $GITHUB_STEP_SUMMARY
             exit 1
           fi
 
-          echo "### Password check (should still be set)" | tee -a $GITHUB_STEP_SUMMARY
+          echo "### Password check (should still be set after JVM restart)" | tee -a $GITHUB_STEP_SUMMARY
           curl --fail -s "http://127.0.0.1:8080/lucee/password-check.cfm" | tee -a $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Snapshot config after restart
-          cp tomcat/webapps/lucee/WEB-INF/lucee-server/context/.CFConfig.json /tmp/config-after-restart.json
+          # Snapshot config after full restart
+          cp tomcat/webapps/lucee/WEB-INF/lucee-server/context/.CFConfig.json /tmp/config-after-tomcat-restart.json
 
       - name: Dump everything
         if: always()
         run: |
-          echo "=== .CFConfig.json BEFORE restart (password/hspw/salt) ==="
+          echo "=== .CFConfig.json BEFORE any restart (password/hspw/salt) ==="
           grep -iE "(password|hspw|salt)" /tmp/config-before-restart.json 2>/dev/null || echo "File not found"
           echo ""
-          echo "=== .CFConfig.json AFTER restart (password/hspw/salt) ==="
-          grep -iE "(password|hspw|salt)" /tmp/config-after-restart.json 2>/dev/null || echo "File not found"
+          echo "=== .CFConfig.json AFTER Lucee restart (password/hspw/salt) ==="
+          grep -iE "(password|hspw|salt)" /tmp/config-after-lucee-restart.json 2>/dev/null || echo "File not found"
           echo ""
-          echo "=== Config diff ==="
-          diff /tmp/config-before-restart.json /tmp/config-after-restart.json || true
+          echo "=== .CFConfig.json AFTER full Tomcat restart (password/hspw/salt) ==="
+          grep -iE "(password|hspw|salt)" /tmp/config-after-tomcat-restart.json 2>/dev/null || echo "File not found"
+          echo ""
+          echo "=== Config diff (before vs after Lucee restart) ==="
+          diff /tmp/config-before-restart.json /tmp/config-after-lucee-restart.json || true
+          echo ""
+          echo "=== Config diff (before vs after Tomcat restart) ==="
+          diff /tmp/config-before-restart.json /tmp/config-after-tomcat-restart.json || true
           echo ""
           echo "=== lucee err.log ==="
           cat tomcat/webapps/lucee/WEB-INF/lucee-server/context/logs/err.log 2>/dev/null || true
@@ -288,33 +335,102 @@ jobs:
             sleep 1
           done
 
-      - name: Test after restart
+      - name: Test after Lucee restart
         run: |
-          echo "## Express ${{ matrix.lucee_version }} - After Restart" | tee -a $GITHUB_STEP_SUMMARY
+          echo "## Express ${{ matrix.lucee_version }} - After Lucee Internal Restart" | tee -a $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "### Version check" | tee -a $GITHUB_STEP_SUMMARY
           curl --fail -s http://127.0.0.1:8888/check.cfm | tee -a $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          echo "### Password check (should still be set)" | tee -a $GITHUB_STEP_SUMMARY
+          echo "### Password check (after Lucee restart)" | tee -a $GITHUB_STEP_SUMMARY
           curl --fail -s "http://127.0.0.1:8888/password-check.cfm" | tee -a $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Snapshot config after restart
-          cp express/lucee-server/context/.CFConfig.json /tmp/express-config-after-restart.json
+          # Snapshot config after Lucee restart
+          cp express/lucee-server/context/.CFConfig.json /tmp/express-config-after-lucee-restart.json
+
+      - name: Full Express restart (JVM restart)
+        run: |
+          echo "### Stopping Express" | tee -a $GITHUB_STEP_SUMMARY
+          cd express
+          if [ -f "./shutdown.sh" ]; then
+            ./shutdown.sh || true
+          else
+            ./bin/shutdown.sh || true
+          fi
+          cd ..
+          sleep 5
+
+          # Make sure it's dead
+          pkill -f "catalina" || true
+          sleep 2
+
+          echo "### Starting Express" | tee -a $GITHUB_STEP_SUMMARY
+          cd express
+          if [ -f "./startup.sh" ]; then
+            ./startup.sh &
+          else
+            ./bin/startup.sh &
+          fi
+          cd ..
+
+          # Wait for Lucee to be ready
+          echo "Waiting for Express to start after full restart..."
+          for i in {1..30}; do
+            if curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8888/lucee/admin/server.cfm 2>/dev/null | grep -qE "(200|302)"; then
+              echo "Express is ready after $i seconds"
+              break
+            fi
+            echo "Waiting... ($i)"
+            sleep 1
+          done
+
+      - name: Test after full Express restart
+        run: |
+          echo "## Express ${{ matrix.lucee_version }} - After Full JVM Restart" | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Version check" | tee -a $GITHUB_STEP_SUMMARY
+          curl --fail -s http://127.0.0.1:8888/check.cfm | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Config check (after full restart)" | tee -a $GITHUB_STEP_SUMMARY
+          HTTP_STATUS=$(curl -s -w "%{http_code}" -o /tmp/express-config-response.txt http://127.0.0.1:8888/config-check.cfm)
+          cat /tmp/express-config-response.txt | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "HTTP Status: $HTTP_STATUS" | tee -a $GITHUB_STEP_SUMMARY
+
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "ERROR: Config check failed with status $HTTP_STATUS - PASSWORD WAS WIPED!" | tee -a $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          echo "### Password check (should still be set after JVM restart)" | tee -a $GITHUB_STEP_SUMMARY
+          curl --fail -s "http://127.0.0.1:8888/password-check.cfm" | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Snapshot config after full restart
+          cp express/lucee-server/context/.CFConfig.json /tmp/express-config-after-jvm-restart.json
 
       - name: Dump Express lucee-server
         if: always()
         run: |
-          echo "=== .CFConfig.json BEFORE restart (password/hspw/salt) ==="
+          echo "=== .CFConfig.json BEFORE any restart (password/hspw/salt) ==="
           grep -iE "(password|hspw|salt)" /tmp/express-config-before-restart.json 2>/dev/null || echo "File not found"
           echo ""
-          echo "=== .CFConfig.json AFTER restart (password/hspw/salt) ==="
-          grep -iE "(password|hspw|salt)" /tmp/express-config-after-restart.json 2>/dev/null || echo "File not found"
+          echo "=== .CFConfig.json AFTER Lucee restart (password/hspw/salt) ==="
+          grep -iE "(password|hspw|salt)" /tmp/express-config-after-lucee-restart.json 2>/dev/null || echo "File not found"
           echo ""
-          echo "=== Config diff ==="
-          diff /tmp/express-config-before-restart.json /tmp/express-config-after-restart.json || true
+          echo "=== .CFConfig.json AFTER full JVM restart (password/hspw/salt) ==="
+          grep -iE "(password|hspw|salt)" /tmp/express-config-after-jvm-restart.json 2>/dev/null || echo "File not found"
+          echo ""
+          echo "=== Config diff (before vs after Lucee restart) ==="
+          diff /tmp/express-config-before-restart.json /tmp/express-config-after-lucee-restart.json || true
+          echo ""
+          echo "=== Config diff (before vs after JVM restart) ==="
+          diff /tmp/express-config-before-restart.json /tmp/express-config-after-jvm-restart.json || true
           echo ""
           echo "=== lucee err.log ==="
           cat express/lucee-server/context/logs/err.log 2>/dev/null || true
