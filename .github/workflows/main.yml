@@ -162,6 +162,10 @@ jobs:
 
       - name: Full Tomcat restart (JVM restart)
         run: |
+          echo "### Context directory BEFORE Tomcat restart:" | tee -a $GITHUB_STEP_SUMMARY
+          ls -la tomcat/webapps/lucee/WEB-INF/lucee-server/context/ | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
           echo "### Stopping Tomcat" | tee -a $GITHUB_STEP_SUMMARY
           tomcat/bin/shutdown.sh || true
           sleep 5
@@ -188,6 +192,10 @@ jobs:
       - name: Test after full Tomcat restart
         run: |
           echo "## Lucee ${{ matrix.lucee_version }} - After Full Tomcat Restart" | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Context directory AFTER Tomcat restart:" | tee -a $GITHUB_STEP_SUMMARY
+          ls -la tomcat/webapps/lucee/WEB-INF/lucee-server/context/ | tee -a $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "### Version check" | tee -a $GITHUB_STEP_SUMMARY
@@ -353,6 +361,10 @@ jobs:
 
       - name: Full Express restart (JVM restart)
         run: |
+          echo "### Context directory BEFORE Express restart:" | tee -a $GITHUB_STEP_SUMMARY
+          ls -la express/lucee-server/context/ | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
           echo "### Stopping Express" | tee -a $GITHUB_STEP_SUMMARY
           cd express
           if [ -f "./shutdown.sh" ]; then
@@ -390,6 +402,10 @@ jobs:
       - name: Test after full Express restart
         run: |
           echo "## Express ${{ matrix.lucee_version }} - After Full JVM Restart" | tee -a $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Context directory AFTER Express restart:" | tee -a $GITHUB_STEP_SUMMARY
+          ls -la express/lucee-server/context/ | tee -a $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "### Version check" | tee -a $GITHUB_STEP_SUMMARY
