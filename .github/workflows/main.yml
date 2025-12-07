@@ -211,13 +211,18 @@ jobs:
       - name: Extract Express
         run: |
           unzip -q "lucee-express-${{ matrix.lucee_version }}.zip" -d express
-          chmod +x express/*.sh express/bin/*.sh
+          chmod +x express/*.sh 2>/dev/null || true
+          chmod +x express/bin/*.sh 2>/dev/null || true
           ls -la express/
 
       - name: Start Express (first boot)
         run: |
           cd express
-          ./startup.sh &
+          if [ -f "./startup.sh" ]; then
+            ./startup.sh &
+          else
+            ./bin/startup.sh &
+          fi
           cd ..
           echo "Waiting for Lucee Express to start..."
 
