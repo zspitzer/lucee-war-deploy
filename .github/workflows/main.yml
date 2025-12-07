@@ -123,6 +123,9 @@ jobs:
           curl --fail -s "http://127.0.0.1:8080/lucee/set-password.cfm?password=testpass123" | tee -a $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
+          # Snapshot config after setting password
+          cp tomcat/webapps/lucee/WEB-INF/lucee-server/context/.CFConfig.json /tmp/config-before-restart.json
+
       - name: Trigger Lucee restart (like admin button)
         run: |
           echo "### Triggering Lucee internal restart" | tee -a $GITHUB_STEP_SUMMARY
@@ -165,14 +168,26 @@ jobs:
           curl --fail -s "http://127.0.0.1:8080/lucee/password-check.cfm" | tee -a $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
+          # Snapshot config after restart
+          cp tomcat/webapps/lucee/WEB-INF/lucee-server/context/.CFConfig.json /tmp/config-after-restart.json
+
       - name: Dump everything
         if: always()
         run: |
-          echo "=== localhost log ==="
-          cat tomcat/logs/localhost.*.log 2>/dev/null || true
+          echo "=== .CFConfig.json BEFORE restart (hspw/salt) ==="
+          grep -E "(hspw|salt)" /tmp/config-before-restart.json 2>/dev/null || echo "File not found"
           echo ""
-          echo "=== catalina.out ==="
-          cat tomcat/logs/catalina.out 2>/dev/null || true
+          echo "=== .CFConfig.json AFTER restart (hspw/salt) ==="
+          grep -E "(hspw|salt)" /tmp/config-after-restart.json 2>/dev/null || echo "File not found"
+          echo ""
+          echo "=== Config diff ==="
+          diff /tmp/config-before-restart.json /tmp/config-after-restart.json || true
+          echo ""
+          echo "=== lucee err.log ==="
+          cat tomcat/webapps/lucee/WEB-INF/lucee-server/context/logs/err.log 2>/dev/null || true
+          echo ""
+          echo "=== lucee out.log ==="
+          cat tomcat/webapps/lucee/WEB-INF/lucee-server/context/logs/out.log 2>/dev/null || true
           echo ""
           echo "=== lucee-server directory ==="
           find tomcat/webapps/lucee/WEB-INF/lucee-server -type f 2>/dev/null | sort
@@ -253,6 +268,9 @@ jobs:
           curl --fail -s "http://127.0.0.1:8888/set-password.cfm?password=testpass123" | tee -a $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
+          # Snapshot config after setting password
+          cp express/lucee-server/context/.CFConfig.json /tmp/express-config-before-restart.json
+
       - name: Trigger Lucee restart
         run: |
           echo "### Triggering Lucee internal restart" | tee -a $GITHUB_STEP_SUMMARY
@@ -283,11 +301,26 @@ jobs:
           curl --fail -s "http://127.0.0.1:8888/password-check.cfm" | tee -a $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
+          # Snapshot config after restart
+          cp express/lucee-server/context/.CFConfig.json /tmp/express-config-after-restart.json
+
       - name: Dump Express lucee-server
         if: always()
         run: |
+          echo "=== .CFConfig.json BEFORE restart (hspw/salt) ==="
+          grep -E "(hspw|salt)" /tmp/express-config-before-restart.json 2>/dev/null || echo "File not found"
+          echo ""
+          echo "=== .CFConfig.json AFTER restart (hspw/salt) ==="
+          grep -E "(hspw|salt)" /tmp/express-config-after-restart.json 2>/dev/null || echo "File not found"
+          echo ""
+          echo "=== Config diff ==="
+          diff /tmp/express-config-before-restart.json /tmp/express-config-after-restart.json || true
+          echo ""
+          echo "=== lucee err.log ==="
+          cat express/lucee-server/context/logs/err.log 2>/dev/null || true
+          echo ""
+          echo "=== lucee out.log ==="
+          cat express/lucee-server/context/logs/out.log 2>/dev/null || true
+          echo ""
           echo "=== Express lucee-server directory ==="
           find express/lucee-server -type f 2>/dev/null | sort || true
-          echo ""
-          echo "=== catalina.out ==="
-          cat express/logs/catalina.out 2>/dev/null || true
